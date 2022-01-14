@@ -104,9 +104,31 @@ def label2rgb(labels,N_label,color_fondo = (0,0,0),colormap = 2):
 
     return Img_color
 
+
+# Funcion Deteccion_texto
+def Deteccion_texto(Imagen_BW, proporcion, titulo):
+    Ancho_kernel = int( Ancho_prom*proporcion )
+    Alto_kernel = int( Alto_prom*proporcion )
+
+    kernel = np.ones((Ancho_kernel,Alto_kernel),np.uint8)    # square (5,5)
+    Deteccion = cv2.dilate(Imagen_BW, kernel, iterations = 1)
+    # El tercer argumento es opcional y por defecto es 1
+
+    Output = cv2.connectedComponentsWithStats(Deteccion, 8, cv2.CV_32S)
+
+    # Resultados
+    num_labels =    Output[0]   # Cantidad de elementos
+    labels =        Output[1]   # Matriz con etiquetas
+
+    # Coloreamos los elementos
+    Img_color = label2rgb(labels,num_labels)
+
+    imshow(Img_color, titulo)
+
 ## --------------------------------------------------------------------- #
 
-
+dil_palabra = 0.3
+dil_parrafo = 1
 
 ## --------------------- Comandos basicos de Python -------------------- #
 # Abrir Imagen
@@ -126,7 +148,17 @@ Img_BW = imclearborder(Img_BW1)
 # Mostrar Imagen
 imshow(Img_BW, title = 'Bordes Limpios')
 
-# # -------------------------------------------------------------------- #
+## --------------------------------------------------------------------- #
+
+## ---------------------------- Dilatacion ----------------------------- #
+# Para dilatar, hay que crear una estructura llamada kernel
+kernel = np.ones((3,3),np.uint8)    # square (5,5)
+Img_BW = cv2.dilate(Img_BW, kernel, iterations = 1)
+# El tercer argumento es opcional y por defecto es 1
+
+# imshow(Img_BW, title = 'Canny + Dilatacion')
+
+## --------------------------------------------------------------------- #
 
 ## ---------------------- Componentes conectadas ----------------------- #
 # img = cv2.imread('Letras y Figuras.tif', cv2.IMREAD_GRAYSCALE)
@@ -168,22 +200,7 @@ imshow(Img_color, title = 'Matriz Etiqueta RGB')
 
 ## --------------------------------------------------------------------- #
 
-## ---------------------------- Dilatacion ----------------------------- #
-# Para dilatar, hay que crear una estructura llamada kernel
-kernel = np.ones((5,5),np.uint8)    # square (5,5)
-Canny_dil = cv2.dilate(Img_BW, kernel, iterations = 1)
-# El tercer argumento es opcional y por defecto es 1
-
-imshow(Canny_dil, title = 'Canny + Dilatacion')
-
-## --------------------------------------------------------------------- #
-
-## ---------------------------- Clausura ------------------------------- #
-# # Para dilatar, hay que crear una estructura llamada kernel
-# kernel = np.ones((5,5),np.uint8)    # square (5,5)
-# Canny_dil = cv2.dilate(Img_BW, kernel, iterations = 1)
-# # El tercer argumento es opcional y por defecto es 1
-
-# imshow(Canny_dil, title = 'Canny + Dilatacion')
+Deteccion_texto(Img_BW, dil_palabra, titulo = 'Deteccion de palabra')
+Deteccion_texto(Img_BW, dil_parrafo, titulo = 'Deteccion de párrafo')
 
 ## --------------------------------------------------------------------- #
