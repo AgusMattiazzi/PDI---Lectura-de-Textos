@@ -104,200 +104,9 @@ def label2rgb(labels,N_label,color_fondo = (0,0,0),colormap = 2):
 
     return Img_color
 
-
-def Get_Fourier_desc(Img_BW,m,n):
-# GFD is a function to calculate the generic fourier descriptors of an
-# object in an binary image
-#     FD = GFD(BW,M,N) gets an NxX binary image BW as input with a single
-#     object centered to the image center. M denotes the radial frequency, N
-#     the angular frequency. Returns and vector FD, containing the fourier
-#     descriptors. The length of the output vector FD is (m*n+n+1). FD(end)
-#     contains the FD(0,0), the rest follow the order of FD(rad*n+ang) with
-#     0 <= rad <= m and 0 <= ang <= n. 
-
-
-#     Function that centers an object to the image center with its Centroid:
-#     http://www.mathworks.com/matlabcentral/fileexchange/52560-centerobject-bw
-
-#     This is an implementation of:
-#     "Shape-based image retrieval using generic Fourier descriptors", D.Zhang,
-#     G. Lu, 2002
-
-#     by Frederik Kratzert 24. Aug 2015
-#     contact f.kratzert(at)gmail.com
-
-#     Implementado a Python por Agustin Mattiazzi, si esto sirve, Dios tambien habra 
-#     tenido algo que ver
-
-    # if type(Img_BW) != type(True):
-    #     raise NameError('The input image must be of type "logical"')
-
-    if (m % 1) > 0 | (n % 1) > 0 | m < 0 | n < 0:
-        # Con % se obtiene el resto de una division
-        raise NameError('Input arguments M and N must be an integer greater or equal to zero')
-    
-    Output = cv2.connectedComponentsWithStats(Img_BW, 8, cv2.CV_32S)
-
-    # Resultados
-    num_labels =    Output[0]   # Cantidad de elementos
-    labels =        Output[1]   # Matriz con etiquetas
-    stats =         Output[2]   # Matriz de stats
-    centroids =     Output[3]   # Centroides de elementos
-
-    if num_labels > 2:  # El fondo cuenta como un objeto
-        raise NameError('Image contains more than one object')
-    
-    Size = np.asarray(Img_BW.shape)
-    # Img_BW.shape es una tupla. np.asarray la convierte en array
-
-    Centro = Size/2
-    Centroide = centroids[1]
-    # Diferencia = Centro - Centroide
-    # if sum(abs(Diferencia) > 0.5) > 0:
-    #     raise NameError('Object is not centered to the image center. See "help gfd"')
-
-    contour, hierarchy = cv2.findContours(Img_BW,cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE)
-    
-    # Veo que onda con el extrema
-    # Img_esq = Img_BW.copy()
-    # Img_esq = cv2.cvtColor(Img_esq, cv2.COLOR_GRAY2RGB)
-    # Img_esq = cv2.drawContours(Img_esq,contour,-1,(0,0,255),1)
-    # imshow(Img_esq, title = 'Extrema')
-
-    # Trato de calcular el radio maximo a partir de los puntos extremos
-    contour_array = contour[0][:,0,:]
-    # print(contour_array.shape)
-    # print(contour_array,contour_array.dtype)
-    x = (contour_array[:,0]-Centroide[0])
-    y = (contour_array[:,1]-Centroide[1])
-    # print(x.shape, y.shape)
-    Radio_max = np.sqrt( x**2 + y**2)
-    Radio_max = np.max(Radio_max)
-    # print(Radio_max)
-
-    N = Size[1]
-    x = np.linspace(-N/2,N/2,N)
-    y = x
-    X,Y = np.meshgrid(x,y)
-
-    Radio = np.sqrt(X**2+Y**2)/Radio_max
-
-    pi = 3.14159265359  # Definicion de pi
-    Theta = np.arctan2(Y,X)
-    # print(Radio.shape)
-    
-    # Aux = Theta < 0
-    Theta[Theta < 0] = Theta[Theta < 0]  + 2*pi
-    # print("Theta: \n", Theta.shape)
-
-    FR = np.zeros( (m+1,n+1) )
-    FI = np.zeros( (m+1,n+1) )
-    FD = np.zeros(  ((m+1)*(n+1),1) )
-    
-    i = 0
-    for Rad in range(0,m):
-    # loop over all angular frequencies
-        for Ang in range(0,n):
-            # calculate FR and FI for (rad,ang)
-
-            R_temp = Img_BW*np.cos(2*pi*Radio*Rad + Ang*Theta)
-            I_temp = -1*Img_BW*np.sin(2*pi*Radio*Rad + Ang*Theta)
-            FR[Rad,Ang] = np.sum(R_temp[:])
-            FI[Rad,Ang] = np.sum(I_temp[:])
-
-            # calculate FD, where FD(end)=FD(0,0) --> rad == 0 & ang == 0
-            FD_00 = np.sqrt( FR[0,0]**2 + FR[0,0]**2 )
-            if Rad == 0 & Ang == 0:
-                # normalized by circle area
-                Area_circ = pi*Radio_max**2
-                FD[i] = FD_00 / Area_circ
-
-            else:
-                # normalized by |FD(0,0)|
-                FD[i] = np.sqrt( ( FR[Rad,Ang]**2 + FI[Rad,Ang]**2) ) / FD_00
-
-            i = i+1
-
-    return FD
-
-# Funcion Get_desc_Fourier
-# Obtiene los descriptores de Fourier de una figura individual
-def Get_desc_Fourier(Img_BW,orden):
-    # Gracias a timfeirg por la ayuda
-    # https://github.com/timfeirg/Fourier-Descriptors
-    contour, hierarchy = cv2.findContours(Img_BW,cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_NONE)
-    contour_array = contour[0][:, 0, :]
-    # Guarda los puntos del contorno en un array (no entiendo bien la 
-    # sintaxis), que carajo es ese 0 en el medio?
-
-    # Crea un array de numeros complejos donde se almacenaran los puntos
-    # del contorno expresados como numeros complejos
-    contour_complex = np.empty(contour_array.shape[:-1], dtype=complex)
-    contour_complex.real = contour_array[:, 0]
-    contour_complex.imag = contour_array[:, 1]
-
-    # Calcula la serie de fourier del contorno
-    Desc = np.fft.fft(contour_complex)
-    print(Desc.shape)
-
-    # Centra el espectro? transformado
-    Desc = np.fft.fftshift(Desc)
-
-    # Trunca los descriptores desde el centro para mantener simetria
-    centro = len(Desc) / 2
-    Izq = np.floor( (centro-orden)/2 )
-    Der = np.ceil( (centro+orden)/2 )
-    Desc = Desc[ int(Izq) : int(Der) ]
-
-    # Vuelve al espectro original (no centrado)
-    Desc = np.fft.ifftshift(Desc)
-    return Desc
-
-
-# Funcion centerobject
-def centerobject(Img_BW):
-    if len(Img_BW) < 9: # Puse un numero chico al azar
-        print("Image is too little")
-        return 0,False  # Operacion fallida
-
-    if len(Img_BW.shape) == 3:
-        print("Color image is not allowed")
-        return 0,False  # Operacion fallida
-
-    Output = cv2.connectedComponentsWithStats(Img_BW, 8, cv2.CV_32S)
-
-    # Resultados
-    num_labels =    Output[0]   # Cantidad de elementos
-    centroids =     Output[3]   # Centroides de elementos
-
-    if num_labels != 2:  # El fondo cuenta como un objeto
-        print("Image does not contain one object")
-        return 0,False  # Operacion fallida
-    
-    Size_BW = np.asarray(Img_BW.shape)
-    # Img_BW.shape es una tupla, np.asarray la convierte en array
-
-    Centroide = np.uint8( centroids[1] )
-    Diff = np.round( abs( Size_BW/2 - Centroide ) )
-    Diff = np.uint8( Diff )
-    # Se usa un valor absoluto porque siempre va a ser necesario agregar
-    # filas y columnas a la imagen original
-
-    R = np.max(Size_BW + Diff )
-    Salida = np.zeros( (R+13,R+13) )    # Hay que dar margen
-    
-    Size_O = np.asarray(Salida.shape)
-    Diff = np.uint8( Size_O/2 - Centroide )    # Esto deberia dar positivo
-
-    for x in range(0, Size_BW[1] - 1):  # Columnas, eje x
-        for y in range(0, Size_BW[0] - 1):  # Filas, eje y
-            Salida[ y+Diff[1], x+Diff[0] ] = Img_BW[ y,x ]
-
-    return np.uint8(Salida),True
-
 ## --------------------------------------------------------------------- #
+
+
 
 ## --------------------- Comandos basicos de Python -------------------- #
 # Abrir Imagen
@@ -312,14 +121,16 @@ ret,Img_BW1 = cv2.threshold(Img_gris,30,255,cv2.THRESH_OTSU)
 Img_BW1 = cv2.bitwise_not(Img_BW1)  # Negativo
 
 # Limpiar bordes
-Img_BW2 = imclearborder(Img_BW1)
+Img_BW = imclearborder(Img_BW1)
 
 # Mostrar Imagen
-imshow(Img_BW2, title = 'Bordes Limpios')
+imshow(Img_BW, title = 'Bordes Limpios')
+
+# # -------------------------------------------------------------------- #
 
 ## ---------------------- Componentes conectadas ----------------------- #
 # img = cv2.imread('Letras y Figuras.tif', cv2.IMREAD_GRAYSCALE)
-Output = cv2.connectedComponentsWithStats(Img_BW2, 8, cv2.CV_32S)
+Output = cv2.connectedComponentsWithStats(Img_BW, 8, cv2.CV_32S)
 # https://docs.opencv.org/3.4/d3/dc0/group__imgproc__shape.html#ga107a78bf7cd25dec05fb4dfc5c9e765f
 
 # Resultados
@@ -328,92 +139,51 @@ labels =        Output[1]   # Matriz con etiquetas
 stats =         Output[2]   # Matriz de stats
 centroids =     Output[3]   # Centroides de elementos
 
-# # Coloreamos los elementos
-# Img_color = label2rgb(labels,num_labels)
+# Coloreamos los elementos
+Img_color = label2rgb(labels,num_labels)
 
-# # Agregamos Bounding Box
-# for i in range(1,num_labels):
-#     Bbox = stats[i,]
-#     cv2.rectangle(Img_color, (Bbox[0], Bbox[1]), (Bbox[0]+Bbox[2],
-#         Bbox[1]+Bbox[3]), (255,255,255), 2)
+Suma_Alto = 0;    Suma_Ancho = 0
 
-# imshow(Img_color, title = 'Matriz Etiqueta RGB')
-
-## ---------------------- Descriptores de Fourier ---------------------- #
-D_Fourier = []
-for i in range(1,num_labels):   # El elemento 0 es el fondo
-
-    # Recorta cada una de las letras
+# Agregamos Bounding Box
+for i in range(1,num_labels):
     Bbox = stats[i,]
-    # Aplica una mascara para evitar la superposicion de letras
-    Mask = labels == i
-    Crop = Mask[ Bbox[1]:Bbox[1]+Bbox[3] , Bbox[0]:Bbox[0]+Bbox[2] ]
-    Crop = 255*np.uint8(Crop)   # Convierte de bool a gris
+    print (Bbox)
+    # Bbox[0] : Coordenada x punto superior izquierdo
+    # Bbox[1] : Coordenada y punto superior izquierdo
+    # Bbox[2] : Ancho
+    # Bbox[3] : Alto
 
-    # imshow(Crop, title = 'Recortada')
-    # print(Crop.shape, Crop.dtype)
-    Crop,Flag = centerobject(Crop)
-    if Flag == True:
-        Output = cv2.connectedComponentsWithStats(Crop, 8, cv2.CV_32S)
-        # https://docs.opencv.org/3.4/d3/dc0/group__imgproc__shape.html#ga107a78bf7cd25dec05fb4dfc5c9e765f
+    cv2.rectangle(Img_color, (Bbox[0], Bbox[1]), (Bbox[0]+Bbox[2],
+        Bbox[1]+Bbox[3]), (255,255,255), 2)
+    
+    Suma_Ancho = Suma_Ancho + Bbox[2] 
+    Suma_Alto = Suma_Alto + Bbox[3]
+    
+Ancho_prom = Suma_Ancho/num_labels
+Alto_prom = Suma_Alto/num_labels
 
-        # Resultados
-        centroids =     Output[3]   # Centroides de elementos
+print(Ancho_prom, Alto_prom)
 
-        Crop_color = cv2.cvtColor(Crop,cv2.COLOR_GRAY2RGB)
-        Centro = np.uint8( np.asarray(Crop.shape)/2 )
-        Centroide = np.uint8( centroids[1] )
+imshow(Img_color, title = 'Matriz Etiqueta RGB')
 
-        # print(Centro,Centroide)
-        # imshow(Crop_color, title = 'Centrada')
-        # print(i, i.dtype)
-        if i == 1:
-            D_Fourier = Get_Fourier_desc(Crop,3,3)
-        else:
-            D_Fourier = np.hstack((D_Fourier,
-                Get_Fourier_desc(Crop,3,3)))
+## --------------------------------------------------------------------- #
 
-## ------------------------------ K-means ------------------------------ #
-# Para aplicar el K-means de open-cv se debe tener el conjunto de vectores
-# a clasificar, el criterio (cuando frena), el maximo de iteraciones, el
-# epsilon (la diferencia maxima entre una iteracion y otra), la cantidad
-# de categorias y la cantidad de repeticiones
+## ---------------------------- Dilatacion ----------------------------- #
+# Para dilatar, hay que crear una estructura llamada kernel
+kernel = np.ones((5,5),np.uint8)    # square (5,5)
+Canny_dil = cv2.dilate(Img_BW, kernel, iterations = 1)
+# El tercer argumento es opcional y por defecto es 1
 
-criteria_type = cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER
-# Con este criterio se detiene el algoritmo si se llega a cumplir la
-# precision deseada, o bien, si se llego al numero maximo de iteraciones,
-# lo que llegue primero
+imshow(Canny_dil, title = 'Canny + Dilatacion')
 
-criteria = (criteria_type, 10, 1.0)
-# El maximo de iteraciones es 10 y el epsilon es 1.0
+## --------------------------------------------------------------------- #
 
-flag = cv2.KMEANS_RANDOM_CENTERS
-# Determina que los centroides iniciales sean aleatorios
+## ---------------------------- Clausura ------------------------------- #
+# # Para dilatar, hay que crear una estructura llamada kernel
+# kernel = np.ones((5,5),np.uint8)    # square (5,5)
+# Canny_dil = cv2.dilate(Img_BW, kernel, iterations = 1)
+# # El tercer argumento es opcional y por defecto es 1
 
-D_Fourier = np.float32( np.transpose(D_Fourier) )
-# Ojo aca, el K-means de open cv agarra los datos por fila, si los 
-# vectores de datos son columnas y no filas, asegurate de hacer la 
-# transpuesta, ademas de eso agarra solo arrays de float32, si sera
-# caprichoso
+# imshow(Canny_dil, title = 'Canny + Dilatacion')
 
-ret, Letras, center = cv2.kmeans(D_Fourier, 27, None, criteria, 10, flag)
-print( Letras )
-
-L_Clasificado = labels.copy()
-# Separo clusters
-for i in Letras:
-    # Busca las letras agrupadas en un conjunto
-    Mask = L_Clasificado == Letras[i]
-    # Reasinga su valor al valor obtenido del K-means
-    L_Clasificado[Mask] = -i
-
-
-L_Clasificado = np.abs( L_Clasificado )
-Img_Clasificado = label2rgb(L_Clasificado,27)
-imshow(Img_Clasificado, title = 'Resultado')
-
-
-
-
-
-# ---------------------------------------------------------------------- #
+## --------------------------------------------------------------------- #
