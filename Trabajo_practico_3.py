@@ -106,7 +106,7 @@ def label2rgb(labels,N_label,color_fondo = (0,0,0),colormap = 2):
 
 
 # Funcion Deteccion_texto
-def Deteccion_texto(Imagen_BW, proporcion, titulo):
+def Deteccion_texto(Imagen_BW, Ancho_prom, Alto_prom, proporcion):
     Ancho_kernel = int( Ancho_prom*proporcion )
     Alto_kernel = int( Alto_prom*proporcion )
 
@@ -122,12 +122,11 @@ def Deteccion_texto(Imagen_BW, proporcion, titulo):
 
     # Coloreamos los elementos
     Img_color = label2rgb(labels,num_labels)
-
-    imshow(Img_color, titulo)
+    return Img_color
 
 ## --------------------------------------------------------------------- #
 
-dil_palabra = 0.3
+dil_palabra = 0.30
 dil_parrafo = 1
 
 ## --------------------- Comandos basicos de Python -------------------- #
@@ -179,7 +178,7 @@ Suma_Alto = 0;    Suma_Ancho = 0
 # Agregamos Bounding Box
 for i in range(1,num_labels):
     Bbox = stats[i,]
-    print (Bbox)
+    #print (Bbox)
     # Bbox[0] : Coordenada x punto superior izquierdo
     # Bbox[1] : Coordenada y punto superior izquierdo
     # Bbox[2] : Ancho
@@ -194,13 +193,29 @@ for i in range(1,num_labels):
 Ancho_prom = Suma_Ancho/num_labels
 Alto_prom = Suma_Alto/num_labels
 
-print(Ancho_prom, Alto_prom)
+print(Ancho_prom, Alto_prom)    # Valor preliminar
+
+# # Segundo ciclo
+# for i in range(1,num_labels):
+#     Bbox = stats[i,]
+#     if (Bbox[2] > 2*Ancho_prom or Bbox[2] < 0.5*Ancho_prom):
+#         if (Bbox[3] > 2*Alto_prom or Bbox[3] < 0.5*Alto_prom):
+#             Suma_Ancho = Suma_Ancho + Bbox[2] 
+#             Suma_Alto = Suma_Alto + Bbox[3]
+#     # Si el ancho o alto estan muy alejados del promedio, se ignoran
+
+# Ancho_prom = Suma_Ancho/num_labels
+# Alto_prom = Suma_Alto/num_labels
+
+# print(Ancho_prom, Alto_prom)    # Valor final
 
 imshow(Img_color, title = 'Matriz Etiqueta RGB')
 
 ## --------------------------------------------------------------------- #
+Img_palabra = Deteccion_texto(Img_BW, Ancho_prom, Alto_prom, dil_palabra)
+imshow(Img_palabra, title = 'Palabras detectadas')
 
-Deteccion_texto(Img_BW, dil_palabra, titulo = 'Deteccion de palabra')
-Deteccion_texto(Img_BW, dil_parrafo, titulo = 'Deteccion de párrafo')
+Img_parrafo = Deteccion_texto(Img_BW, Ancho_prom, Alto_prom, dil_parrafo)
+imshow(Img_parrafo, title = 'Parrafos detectados')
 
 ## --------------------------------------------------------------------- #
